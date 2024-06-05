@@ -1,12 +1,12 @@
 const userModel = require("../models/userModel");
-
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+// Register Controller
 const registerController = async (req, res) => {
   try {
-    console.log("Incoming request:", req.body);
+    const { username, email, password, phone, address, answer } = req.body;
 
-    const { username, email, password, phone, address } = req.body;
-
-    if (!username || !email || !password || !phone || !address) {
+    if (!username || !email || !password || !phone || !address || !answer) {
       console.log("Validation failed: missing fields");
       return res.status(400).send({
         success: false,
@@ -23,16 +23,17 @@ const registerController = async (req, res) => {
       });
     }
 
-    const user = new userModel({
+    // Hashing password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const user = await userModel.create({
       username,
       email,
-      password,
+      password: hashedPassword,
       phone,
       address,
+      answer,
     });
-
-    await user.save();
-    console.log("User created successfully:", user);
 
     res.status(201).send({
       success: true,
@@ -49,4 +50,57 @@ const registerController = async (req, res) => {
   }
 };
 
-module.exports = { registerController };
+// login Controller
+const loginController = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    // validation
+    if (!email || !password) {
+      return res.status(500).send({
+        success: false,
+        message: "Please enter all fields",
+      });
+    }
+
+    // check user
+    const user = await userModel.findOne({ email: email });
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found ",
+      });
+    }
+
+    // user is valid | compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(500).send({
+        success: false,
+        message: "invalid Credentials",
+      });
+    }
+
+    //jwt token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+    // paasword will not show on response
+    user.password = undefined;
+    res.status(200).send({
+      success: true,
+      message: "login SuccessFully",
+      token,
+      user,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      success: false,
+      message: "Error in Login API",
+      error,
+    });
+  }
+};
+
+module.exports = { registerController, loginController };

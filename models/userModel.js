@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
       default:
         "https://pixabay.com/vectors/blank-profile-picture-mystery-man-973460/",
     },
+    answer: {
+      type: String,
+      required: [true, "answer is required"],
+    },
   },
   { timestamps: true }
 );
